@@ -1,0 +1,28 @@
+# Example ROS2 CameraInfo dump, used only by the aruco / manual solver modes.
+# (The apriltag mode reads intrinsics live from the RealSense device instead.)
+#
+# Dump from a running camera with, e.g.:
+#   ros2 topic echo --once /camera/color/camera_info > camera_info.yaml
+#
+# 'k' is the 3x3 intrinsic matrix flattened row-major [fx 0 cx 0 fy cy 0 0 1].
+width: 640
+height: 480
+distortion_model: plumb_bob
+header:
+  frame_id: camera_color_optical_frame
+k:
+  - 615.0   #  fx
+  - 0.0
+  - 320.0   #  cx
+  - 0.0
+  - 615.0   #  fy
+  - 240.0   #  cy
+  - 0.0
+  - 0.0
+  - 1.0
+d:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0

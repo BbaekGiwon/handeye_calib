@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "handeye-calib"
+version = "0.1.0"
+description = "AprilTag-based hand-eye (base->camera) calibration for a Franka FR3"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "opencv-python>=4.5",
+    "pyyaml>=5.4",
+]
+
+[project.optional-dependencies]
+# Data collection extras (record_snapshots.py). ROS2 (rclpy/sensor_msgs) must be
+# provided by a sourced ROS2 install, not pip.
+record = [
+    "pyrealsense2",
+    "pupil-apriltags",
+]
+
+# CLI entry points live in scripts/ (record_snapshots.py, estimate_extrinsic.py)
+# and are runnable directly without installing the package.
+
+[tool.setuptools.packages.find]
+where = ["src"]
