@@ -1,8 +1,9 @@
 # Core solver (estimate_extrinsic.py) — pure Python, works in any env:
-numpy>=1.21
+# Keep NumPy below 1.25 for compatibility with Ubuntu/ROS2 SciPy 1.8.x.
+numpy>=1.21,<1.25
 scipy>=1.7
-opencv-python>=4.5      # cv2 + cv2.aruco (aruco/manual modes)
-pyyaml>=5.4             # camera_info YAML (aruco/manual modes)
+opencv-python>=4.5,<4.12  # cv2 + cv2.aruco (aruco/manual modes)
+pyyaml>=5.4               # camera_info YAML (aruco/manual modes)
 
 # Hardware tools (record_snapshots.py, click_test.py) — typically a dedicated env:
 #   pyrealsense2         # RealSense color/depth stream (both scripts)
