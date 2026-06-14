@@ -76,7 +76,7 @@ These are imported lazily, so FK and the solver import fine without them.
 Mount the tag on the EE, point the camera at the workspace, then:
 
 ```bash
-# Franka FR3 (subscribes to fr3_joint1..7 on /joint_states)
+# Franka FR3 (reads 7 ordered joint positions from /franka/joint_position)
 python scripts/record_snapshots.py --robot fr3 \
     --output-dir data/snapshots --tag-size 0.04 --tag-family tag36h11
 

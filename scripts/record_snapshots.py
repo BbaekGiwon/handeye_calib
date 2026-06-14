@@ -57,6 +57,7 @@ def main() -> None:
         output_dir=os.path.abspath(args.output_dir),
         output_prefix=prefix,
         joint_topic=args.joint_topic or robot.joint_topic,
+        joint_message_type=robot.joint_message_type,
     )
 
 

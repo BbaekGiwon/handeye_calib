@@ -39,13 +39,18 @@ def _import_ros():
     from rclpy.node import Node
     from rclpy.qos import qos_profile_sensor_data
     from sensor_msgs.msg import JointState
+    from std_msgs.msg import Float64MultiArray
 
-    return rclpy, MultiThreadedExecutor, Node, qos_profile_sensor_data, JointState
+    return rclpy, MultiThreadedExecutor, Node, qos_profile_sensor_data, JointState, Float64MultiArray
 
 
-def make_franka_subscriber(joint_names: list[str], topic: str = "/joint_states"):
+def make_franka_subscriber(
+    joint_names: list[str],
+    topic: str = "/joint_states",
+    message_type: str = "joint_state",
+):
     """Build a ROS2 node subscribing to ``topic`` for the named FR3 joints."""
-    rclpy, _, Node, qos_profile_sensor_data, JointState = _import_ros()
+    rclpy, _, Node, qos_profile_sensor_data, JointState, Float64MultiArray = _import_ros()
 
     class FrankaJointStateSubscriber(Node):
         def __init__(self) -> None:
@@ -53,34 +58,59 @@ def make_franka_subscriber(joint_names: list[str], topic: str = "/joint_states")
             self._lock = threading.Lock()
             self._joint_names = list(joint_names)
             self._joint_positions = np.zeros(len(joint_names), dtype=np.float64)
-            self._joint_torques = np.zeros(len(joint_names), dtype=np.float64)
             self._received = False
             self._recv_count = 0
             self._last_stamp_sec: Optional[int] = None
             self._last_stamp_nanosec: Optional[int] = None
+            self._warned_missing_joint_names = False
 
-            self.create_subscription(JointState, topic, self._callback, qos_profile_sensor_data)
-            self.get_logger().info(f"Subscribe: {topic}")
+            if message_type == "float64_multi_array":
+                msg_type = Float64MultiArray
+            elif message_type == "joint_state":
+                msg_type = JointState
+            else:
+                raise ValueError(f"Unsupported joint message type: {message_type}")
+
+            self.create_subscription(msg_type, topic, self._callback, qos_profile_sensor_data)
+            self.get_logger().info(f"Subscribe: {topic} ({message_type})")
 
         def _callback(self, msg) -> None:
+            if message_type == "float64_multi_array":
+                self._update_from_array(msg)
+                return
+
             joint_map = {name: idx for idx, name in enumerate(msg.name)}
-            if any(name not in joint_map for name in self._joint_names):
+            missing = [name for name in self._joint_names if name not in joint_map]
+            if missing:
+                if not self._warned_missing_joint_names:
+                    self.get_logger().warn(
+                        "JointState received, but joint names do not match. "
+                        f"missing={missing}, expected={self._joint_names}, got={list(msg.name)}"
+                    )
+                    self._warned_missing_joint_names = True
                 return
             with self._lock:
                 self._joint_positions[:] = [
                     float(msg.position[joint_map[name]]) for name in self._joint_names
                 ]
-                if len(msg.effort) > 0:
-                    self._joint_torques[:] = [
-                        float(msg.effort[joint_map[name]]) if joint_map[name] < len(msg.effort) else 0.0
-                        for name in self._joint_names
-                    ]
-                else:
-                    self._joint_torques[:] = 0.0
                 self._received = True
                 self._recv_count += 1
                 self._last_stamp_sec = int(msg.header.stamp.sec)
                 self._last_stamp_nanosec = int(msg.header.stamp.nanosec)
+
+        def _update_from_array(self, msg) -> None:
+            values = list(msg.data)
+            if len(values) < len(self._joint_names):
+                self.get_logger().warn(
+                    f"Joint array has {len(values)} values, expected {len(self._joint_names)}"
+                )
+                return
+            with self._lock:
+                self._joint_positions[:] = [float(value) for value in values[:len(self._joint_names)]]
+                self._received = True
+                self._recv_count += 1
+                self._last_stamp_sec = None
+                self._last_stamp_nanosec = None
 
         def latest_state(self) -> dict:
             with self._lock:
@@ -90,7 +120,6 @@ def make_franka_subscriber(joint_names: list[str], topic: str = "/joint_states")
                     "arm_id": 0,
                     "joint_names": list(self._joint_names),
                     "joint_positions": self._joint_positions.tolist(),
-                    "joint_torques": self._joint_torques.tolist(),
                     "source_topic": topic,
                     "source_stamp": {
                         "sec": self._last_stamp_sec,
@@ -169,6 +198,7 @@ def run_recorder(
     output_dir: str,
     output_prefix: str = "apriltag_franka_snapshots",
     joint_topic: str = "/joint_states",
+    joint_message_type: str = "joint_state",
 ) -> Optional[str]:
     """Run the interactive recorder loop. Returns the written JSON path."""
     import pyrealsense2 as rs
@@ -177,10 +207,10 @@ def run_recorder(
     if joint_names is None:
         joint_names = FR3_JOINT_NAMES
 
-    rclpy, MultiThreadedExecutor, _, _, _ = _import_ros()
+    rclpy, MultiThreadedExecutor, _, _, _, _ = _import_ros()
 
     rclpy.init()
-    ros_node = make_franka_subscriber(joint_names, topic=joint_topic)
+    ros_node = make_franka_subscriber(joint_names, topic=joint_topic, message_type=joint_message_type)
     executor = MultiThreadedExecutor()
     executor.add_node(ros_node)
     ros_thread = threading.Thread(target=executor.spin, daemon=True)

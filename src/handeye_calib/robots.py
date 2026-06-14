@@ -20,6 +20,7 @@ class RobotConfig:
     end_link: str
     joint_names: list[str]              # ordered, as named in /joint_states
     joint_topic: str = "/joint_states"
+    joint_message_type: str = "joint_state"
     snapshot_key: str = "robot"         # JSON key the recorder writes joints under
 
     @property
@@ -35,6 +36,8 @@ ROBOTS: dict[str, RobotConfig] = {
         base_link="fr3_link0",
         end_link="fr3_link8",
         joint_names=[f"fr3_joint{i}" for i in range(1, 8)],
+        joint_topic="/franka/joint_position",
+        joint_message_type="float64_multi_array",
     ),
     # Doosan A0509 — 6-axis collaborative arm, base_link -> link_6 (flange).
     "a0509": RobotConfig(
